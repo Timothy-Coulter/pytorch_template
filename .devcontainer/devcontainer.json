@@ -1,0 +1,84 @@
+{
+  "name": "torch-starter-simplified (PyTorch + CUDA 12.9)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "options": [
+      "--build-arg",
+      "BUILDKIT_INLINE_CACHE=1",
+      "--platform=linux/amd64"
+    ]
+  },
+  "runArgs": [
+    "--gpus=all",
+    "--shm-size=8g",
+    "--ulimit=memlock=-1",
+    "--ulimit=stack=67108864",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=seccomp=unconfined"
+  ],
+  "containerUser": "ubuntu",
+  "workspaceFolder": "/workspaces/torch-starter",
+  "workspaceMount": "source=torch-starter-workspace,target=/workspaces/torch-starter,type=volume",
+  "containerEnv": {
+    "CUDA_VISIBLE_DEVICES": "all",
+    "NVIDIA_VISIBLE_DEVICES": "all",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONUNBUFFERED": "1",
+    "UV_CACHE_DIR": "/home/ubuntu/.cache/uv"
+  },
+  "mounts": [
+    {
+      "source": "torch-starter-cache",
+      "target": "/home/ubuntu/.cache",
+      "type": "volume"
+    }
+  ],
+  "initializeCommand": [
+    "bash",
+    "-c",
+    "docker volume create torch-starter-workspace 2>/dev/null || true && docker volume create torch-starter-cache 2>/dev/null || true"
+  ],
+  "postCreateCommand": {
+    "setup": "bash -c 'cd /workspaces/torch-starter && echo \"🔧 Setting up environment...\"'",
+    "clone": "bash -c 'if [ ! -f \"/workspaces/torch-starter/pyproject.toml\" ]; then echo \"📥 Cloning repository...\"; git clone https://github.com/Timothy-Coulter/ubuntu_p3_12_torch_devcontainer.git /tmp/repo && cp -r /tmp/repo/* /tmp/repo/.[!.]* /workspaces/torch-starter/ 2>/dev/null || true && rm -rf /tmp/repo; fi'",
+    "sync": "bash -c 'cd /workspaces/torch-starter && echo \"📦 Syncing UV environment...\" && uv sync && echo \"✅ Environment synced\"'",
+    "verify": "bash -c 'cd /workspaces/torch-starter && echo \"🔍 Running verification...\" && ./dev.sh verify-setup'",
+    "ready": "echo '🎉 Development environment ready! Run \"./dev.sh help\" for available commands.'"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "os-provided"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "charliermarsh.ruff",
+        "GitHub.copilot",
+        "ms-toolsai.tensorboard",
+        "RooVeterinaryInc.roo-cline",
+        "gaogaotiantian.viztracer-vscode",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/torch-starter/.venv/bin/python",
+        "python.terminal.activateEnvironment": false,
+        "ruff.enable": true,
+        "jupyter.defaultKernel": "Python 3.12.8",
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.cwd": "/workspaces/torch-starter"
+      }
+    }
+  },
+  "shutdownAction": "stopContainer",
+  "hostRequirements": {
+    "gpu": "optional",
+    "memory": "8gb",
+    "cpus": 4
+  },
+  "waitFor": "postCreateCommand"
+}

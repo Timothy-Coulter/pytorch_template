@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # Python and development
     python3 python3-pip python3-venv python3-dev \
     # System utilities
-    sudo tini vim \
+    sudo tini vim tree \
     # GPU utilities
     nvidia-utils-555 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
@@ -38,13 +38,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # ==============================================================================
 FROM base AS user-setup
 
-# Create user with proper permissions
-RUN groupadd -g ${APP_GID} ${APP_USER} && \
-    useradd -m -u ${APP_UID} -g ${APP_GID} -s /bin/bash ${APP_USER} && \
+# Create user with proper permissions (if it doesn't already exist)
+RUN if ! getent group ${APP_USER} > /dev/null; then \
+        groupadd -g ${APP_GID} ${APP_USER}; \
+    fi && \
+    if ! id -u ${APP_USER} > /dev/null 2>&1; then \
+        useradd -m -u ${APP_UID} -g ${APP_USER} -s /bin/bash ${APP_USER}; \
+    fi && \
     usermod -aG sudo ${APP_USER} && \
     echo "${APP_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${APP_USER} && \
     chmod 0440 /etc/sudoers.d/${APP_USER} && \
-    # Create workspace and cache directories
     mkdir -p /workspaces/torch-starter && \
     mkdir -p /home/${APP_USER}/.cache/{huggingface,torch,uv,pip} && \
     mkdir -p /home/${APP_USER}/.local/bin && \
