@@ -76,6 +76,7 @@ COPY --chown=${APP_USER}:${APP_USER} verify_setup/ ./verify_setup/
 
 # Create virtual environment and install dependencies
 RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,uid=${APP_UID},gid=${APP_GID} \
+    uv lock && \
     uv venv --python 3.12 && \
     uv sync --frozen && \
     # Verify installations
