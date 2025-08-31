@@ -1,5 +1,5 @@
 {
-  "name": "torch-starter-simplified (PyTorch + CUDA 12.9)",
+  "name": "torch-starter-nvidia (PyTorch + NVIDIA CUDA 12.9)",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "..",
@@ -15,7 +15,9 @@
     "--ulimit=memlock=-1",
     "--ulimit=stack=67108864",
     "--cap-add=SYS_PTRACE",
-    "--security-opt=seccomp=unconfined"
+    "--security-opt=seccomp=unconfined",
+    "--ipc=host",
+    "--network=host"
   ],
   "containerUser": "ubuntu",
   "workspaceFolder": "/workspaces/torch-starter",
@@ -25,30 +27,46 @@
     "NVIDIA_VISIBLE_DEVICES": "all",
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONUNBUFFERED": "1",
-    "UV_CACHE_DIR": "/home/ubuntu/.cache/uv"
+    "UV_CACHE_DIR": "/home/ubuntu/.cache/uv",
+    "UV_SYSTEM_PYTHON": "1",
+    "CUDA_MODULE_LOADING": "LAZY",
+    "TORCH_CUDA_ARCH_LIST": "6.0;6.1;7.0;7.5;8.0;8.6;9.0",
+    "HF_HOME": "/home/ubuntu/.cache/huggingface",
+    "TORCH_HOME": "/home/ubuntu/.cache/torch"
   },
   "mounts": [
     {
       "source": "torch-starter-cache",
       "target": "/home/ubuntu/.cache",
       "type": "volume"
+    },
+    {
+      "source": "torch-starter-uv-cache",
+      "target": "/home/ubuntu/.cache/uv",
+      "type": "volume"
     }
   ],
   "initializeCommand": [
     "bash",
     "-c",
-    "docker volume create torch-starter-workspace 2>/dev/null || true && docker volume create torch-starter-cache 2>/dev/null || true"
+    "docker volume create torch-starter-workspace 2>/dev/null || true && docker volume create torch-starter-cache 2>/dev/null || true && docker volume create torch-starter-uv-cache 2>/dev/null || true"
   ],
   "postCreateCommand": {
-    "setup": "bash -c 'cd /workspaces/torch-starter && echo \"🔧 Setting up environment...\"'",
+    "setup": "bash -c 'cd /workspaces/torch-starter && echo \"🔧 Setting up NVIDIA CUDA environment...\"'",
     "clone": "bash -c 'if [ ! -f \"/workspaces/torch-starter/pyproject.toml\" ]; then echo \"📥 Cloning repository...\"; git clone https://github.com/Timothy-Coulter/ubuntu_p3_12_torch_devcontainer.git /tmp/repo && cp -r /tmp/repo/* /tmp/repo/.[!.]* /workspaces/torch-starter/ 2>/dev/null || true && rm -rf /tmp/repo; fi'",
-    "sync": "bash -c 'cd /workspaces/torch-starter && echo \"📦 Syncing UV environment...\" && uv sync && echo \"✅ Environment synced\"'",
-    "verify": "bash -c 'cd /workspaces/torch-starter && echo \"🔍 Running verification...\" && ./dev.sh verify-setup'",
-    "ready": "echo '🎉 Development environment ready! Run \"./dev.sh help\" for available commands.'"
+    "permissions": "bash -c 'sudo chown -R ubuntu:ubuntu /workspaces/torch-starter'",
+    "sync": "bash -c 'cd /workspaces/torch-starter && echo \"📦 Syncing UV environment with NVIDIA optimizations...\" && uv sync --frozen && echo \"✅ Environment synced with NVIDIA CUDA support\"'",
+    "verify": "bash -c 'cd /workspaces/torch-starter && echo \"🔍 Running NVIDIA CUDA verification...\" && ./dev.sh verify-setup'",
+    "gpu-info": "bash -c 'cd /workspaces/torch-starter && echo \"🖥️  GPU Information:\" && ./dev.sh gpu-info || echo \"⚠️  GPU not available in this environment\"'",
+    "ready": "echo '🎉 NVIDIA CUDA Development environment ready! Run \"./dev.sh help\" for available commands.'"
   },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {
       "version": "os-provided"
+    },
+    "ghcr.io/devcontainers/features/nvidia-cuda:1": {
+      "installToolkit": false,
+      "cudaVersion": "12.9"
     }
   },
   "customizations": {
@@ -62,7 +80,9 @@
         "ms-toolsai.tensorboard",
         "RooVeterinaryInc.roo-cline",
         "gaogaotiantian.viztracer-vscode",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "nvidia.nsight-vscode-edition",
+        "ms-vscode.cpptools"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/workspaces/torch-starter/.venv/bin/python",
@@ -70,7 +90,24 @@
         "ruff.enable": true,
         "jupyter.defaultKernel": "Python 3.12.8",
         "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.cwd": "/workspaces/torch-starter"
+        "terminal.integrated.cwd": "/workspaces/torch-starter",
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.venv/**": true,
+          "**/data/**": true,
+          "**/logs/**": true,
+          "**/models/**": true,
+          "**/.cache/**": true
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/bower_components": true,
+          "**/.venv": true,
+          "**/data": true,
+          "**/logs": true,
+          "**/models": true,
+          "**/.cache": true
+        }
       }
     }
   },
@@ -80,5 +117,23 @@
     "memory": "8gb",
     "cpus": 4
   },
-  "waitFor": "postCreateCommand"
+  "waitFor": "postCreateCommand",
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Development Server",
+      "onAutoForward": "notify"
+    },
+    "6006": {
+      "label": "TensorBoard",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Web App",
+      "onAutoForward": "notify"
+    }
+  }
 }
