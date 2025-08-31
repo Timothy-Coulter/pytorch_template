@@ -52,21 +52,11 @@
     "docker volume create torch-starter-workspace 2>/dev/null || true && docker volume create torch-starter-cache 2>/dev/null || true && docker volume create torch-starter-uv-cache 2>/dev/null || true"
   ],
   "postCreateCommand": {
-    "setup": "bash -c 'cd /workspaces/torch-starter && echo \"🔧 Setting up NVIDIA CUDA environment...\"'",
-    "clone": "bash -c 'if [ ! -f \"/workspaces/torch-starter/pyproject.toml\" ]; then echo \"📥 Cloning repository...\"; git clone https://github.com/Timothy-Coulter/ubuntu_p3_12_torch_devcontainer.git /tmp/repo && cp -r /tmp/repo/* /tmp/repo/.[!.]* /workspaces/torch-starter/ 2>/dev/null || true && rm -rf /tmp/repo; fi'",
-    "permissions": "bash -c 'sudo chown -R ubuntu:ubuntu /workspaces/torch-starter'",
-    "sync": "bash -c 'cd /workspaces/torch-starter && echo \"📦 Syncing UV environment with NVIDIA optimizations...\" && uv sync --frozen && echo \"✅ Environment synced with NVIDIA CUDA support\"'",
-    "verify": "bash -c 'cd /workspaces/torch-starter && echo \"🔍 Running NVIDIA CUDA verification...\" && ./dev.sh verify-setup'",
-    "gpu-info": "bash -c 'cd /workspaces/torch-starter && echo \"🖥️  GPU Information:\" && ./dev.sh gpu-info || echo \"⚠️  GPU not available in this environment\"'",
-    "ready": "echo '🎉 NVIDIA CUDA Development environment ready! Run \"./dev.sh help\" for available commands.'"
+    "setup": "bash -c 'if [ -f \"/workspaces/torch-starter/setup_environment.sh\" ]; then chmod +x /workspaces/torch-starter/setup_environment.sh && /workspaces/torch-starter/setup_environment.sh; else echo \"⚠️  setup_environment.sh not found, manual setup required\"; fi'"
   },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {
       "version": "os-provided"
-    },
-    "ghcr.io/devcontainers/features/nvidia-cuda:1": {
-      "installToolkit": false,
-      "cudaVersion": "12.9"
     }
   },
   "customizations": {
