@@ -20,8 +20,8 @@
     "--network=host"
   ],
   "containerUser": "ubuntu",
-  "workspaceFolder": "/workspaces/torch-starter",
-  "workspaceMount": "source=torch-starter-workspace,target=/workspaces/torch-starter,type=volume",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "containerEnv": {
     "CUDA_VISIBLE_DEVICES": "all",
     "NVIDIA_VISIBLE_DEVICES": "all",
@@ -49,10 +49,10 @@
   "initializeCommand": [
     "bash",
     "-c",
-    "docker volume create torch-starter-workspace 2>/dev/null || true && docker volume create torch-starter-cache 2>/dev/null || true && docker volume create torch-starter-uv-cache 2>/dev/null || true"
+    "docker volume create torch-starter-cache 2>/dev/null || true && docker volume create torch-starter-uv-cache 2>/dev/null || true"
   ],
   "postCreateCommand": {
-    "setup": "bash -c 'if [ -f \"/workspaces/torch-starter/setup_environment.sh\" ]; then chmod +x /workspaces/torch-starter/setup_environment.sh && /workspaces/torch-starter/setup_environment.sh; else echo \"⚠️  setup_environment.sh not found, manual setup required\"; fi'"
+    "setup": "bash -c 'if [ -f \"/workspace/setup_environment.sh\" ]; then chmod +x /workspace/setup_environment.sh && /workspace/setup_environment.sh; else echo \"⚠️  setup_environment.sh not found, manual setup required\"; fi'"
   },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {
@@ -75,12 +75,12 @@
         "ms-vscode.cpptools"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/workspaces/torch-starter/.venv/bin/python",
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
         "python.terminal.activateEnvironment": false,
         "ruff.enable": true,
         "jupyter.defaultKernel": "Python 3.12.8",
         "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.cwd": "/workspaces/torch-starter",
+        "terminal.integrated.cwd": "/workspace",
         "files.watcherExclude": {
           "**/node_modules/**": true,
           "**/.venv/**": true,

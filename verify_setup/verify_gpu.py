@@ -40,6 +40,9 @@ def main():
                 print(f"  Device: {name}")
                 print(f"  Memory: {memory}")
                 print(f"  Driver: v{driver}")
+    else:
+        print("❌ Failed to get GPU details")
+        return False
     
     # Check CUDA runtime version
     success, stdout, stderr = run_command("nvcc --version")
@@ -56,20 +59,32 @@ def main():
         import torch
         if torch.cuda.is_available():
             print("\n🔥 PyTorch CUDA Test:")
-            device = torch.cuda.get_device_name(0)
-            print(f"  Active device: {device}")
+            device_count = torch.cuda.device_count()
+            print(f"  Found {device_count} CUDA device(s)")
+            
+            for i in range(device_count):
+                device = torch.cuda.get_device_name(i)
+                print(f"  Device {i}: {device}")
+            
+            # Use default device
+            device = torch.device('cuda:0')
             
             # Simple computation test
-            a = torch.randn(1000, 1000, device='cuda')
-            b = torch.randn(1000, 1000, device='cuda')
-            torch.cuda.synchronize()
+            a = torch.randn(1000, 1000, device=device)
+            b = torch.randn(1000, 1000, device=device)
             
+            # Non-blocking test
             c = torch.mm(a, b)
-            torch.cuda.synchronize()
-            print("  ✅ CUDA computation test passed")
+            
+            # Verify result
+            if c.size() == (1000, 1000):
+                print("  ✅ CUDA computation test passed")
+            else:
+                print(f"❌ CUDA computation test failed - unexpected result size: {c.size()}")
+                return False
             
             # Memory check
-            allocated = torch.cuda.memory_allocated() / 1024**2
+            allocated = torch.cuda.memory_allocated(device) / 1024**2
             print(f"  GPU memory allocated: {allocated:.1f} MB")
             
             # Cleanup
@@ -81,7 +96,7 @@ def main():
             return False
             
     except Exception as e:
-        print(f"❌ PyTorch CUDA test failed: {e}")
+        print(f"❌ PyTorch CUDA test failed: {str(e)}")
         return False
     
     print("\n✅ GPU verification passed")

@@ -10,6 +10,12 @@ ARG TARGETARCH
 # ==============================================================================
 FROM --platform=$TARGETPLATFORM nvcr.io/nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS base
 
+# Platform validation
+RUN if [ -z "$TARGETPLATFORM" ]; then \
+    echo "WARNING: TARGETPLATFORM not set - using default linux/amd64"; \
+    export TARGETPLATFORM=linux/amd64; \
+fi
+
 # Build arguments
 ARG BUILDKIT_INLINE_CACHE=1
 ARG APP_USER=ubuntu
@@ -28,6 +34,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3 python3-pip python3-venv python3-dev \
     # System utilities
     sudo tini vim nano tree htop \
+    # Additional tools for GPU verification
+    ocl-icd-opencl-dev clinfo \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && apt-get autoremove -y && apt-get autoclean
 
@@ -47,14 +55,14 @@ RUN if ! getent group ${APP_USER} > /dev/null; then \
     chmod 0440 /etc/sudoers.d/${APP_USER}
 
 # Create necessary directories with proper ownership
-RUN mkdir -p /workspaces/torch-starter && \
+RUN mkdir -p /workspace && \
     mkdir -p /home/${APP_USER}/.cache/{huggingface,torch,uv,pip} && \
     mkdir -p /home/${APP_USER}/.local/bin && \
-    chown -R ${APP_USER}:${APP_USER} /home/${APP_USER} /workspaces
+    chown -R ${APP_USER}:${APP_USER} /home/${APP_USER} /workspace
 
 # Switch to non-root user
 USER ${APP_USER}
-WORKDIR /workspaces/torch-starter
+WORKDIR /workspace
 
 # ==============================================================================
 # UV Package Manager Installation
@@ -76,6 +84,9 @@ RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,uid=${APP_UID},gid=${A
 # Copy project configuration files (only essential files for dependency resolution)
 COPY --chown=${APP_USER}:${APP_USER} pyproject.toml ./
 
+# Copy GPU verification scripts to persistent location
+COPY --chown=${APP_USER}:${APP_USER} verify_setup/ /workspace/verify_setup/
+
 # Create virtual environment and install dependencies
 RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,uid=${APP_UID},gid=${APP_GID} \
     # Initialize UV and create virtual environment
@@ -85,9 +96,7 @@ RUN --mount=type=cache,target=/home/${APP_USER}/.cache/uv,uid=${APP_UID},gid=${A
     # Install core dependencies first
     uv sync --frozen && \
     # Verify basic installation
-    .venv/bin/python -c "import sys; print(f'Python {sys.version}')" && \
-    # Test PyTorch installation (allow failure during build)
-    .venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__}')" || echo "PyTorch verification will be done post-build"
+    .venv/bin/python -c "import sys; print(f'Python {sys.version}')"
 
 # ==============================================================================
 # Final Configuration
@@ -109,15 +118,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Setup shell integration for seamless development
 RUN echo '# Torch-starter development environment' >> ~/.bashrc && \
-    echo 'if [ -f /workspaces/torch-starter/.venv/bin/activate ]; then' >> ~/.bashrc && \
-    echo '  source /workspaces/torch-starter/.venv/bin/activate' >> ~/.bashrc && \
+    echo 'if [ -f /workspace/.venv/bin/activate ]; then' >> ~/.bashrc && \
+    echo '  source /workspace/.venv/bin/activate' >> ~/.bashrc && \
     echo 'fi' >> ~/.bashrc && \
-    echo 'cd /workspaces/torch-starter 2>/dev/null || true' >> ~/.bashrc && \
+    echo 'cd /workspace 2>/dev/null || true' >> ~/.bashrc && \
     echo 'echo "🚀 PyTorch DevContainer Ready!"' >> ~/.bashrc && \
     echo 'if [ -f "./dev.sh" ]; then echo "💡 Run ./dev.sh help for available commands"; fi' >> ~/.bashrc
 
 # Expose commonly used ports
 EXPOSE 8888 8000 6006 8080
+
+# Add health check for standalone use
+HEALTHCHECK --interval=5m --timeout=30s \
+    CMD python3 /workspace/verify_setup/verify_gpu.py
 
 # Use tini for proper signal handling
 ENTRYPOINT ["/usr/bin/tini", "--"]
