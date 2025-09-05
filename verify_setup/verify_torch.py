@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 """Verify PyTorch and CUDA setup."""
 
 import sys
 import time
-
 
 def main():
     print("🔥 PyTorch Verification")
@@ -33,7 +31,13 @@ def main():
             try:
                 x = torch.tensor([1.0], device='cuda')
                 print(f"✅ CUDA tensor test passed: {x.device}")
-                del x
+                
+                # Simple computation test
+                y = torch.tensor([2.0], device='cuda')
+                z = x + y
+                print(f"✅ CUDA computation test passed: {z.item()}")
+                
+                del x, y, z
                 torch.cuda.empty_cache()
             except Exception as e:
                 print(f"❌ CUDA tensor test failed: {e}")
@@ -58,7 +62,6 @@ def main():
     except Exception as e:
         print(f"❌ PyTorch verification failed: {e}")
         return False
-
 
 if __name__ == "__main__":
     success = main()

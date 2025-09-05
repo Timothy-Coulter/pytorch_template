@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
 """Verify Python environment setup."""
 
 import sys
 import platform
 from pathlib import Path
-
 
 def main():
     print("🐍 Python Environment Verification")
@@ -43,7 +41,6 @@ def main():
     
     print("\n✅ Python environment verification passed")
     return True
-
 
 if __name__ == "__main__":
     success = main()

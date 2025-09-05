@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==============================================================================
-# Environment Setup Script for torch-starter
+# Environment Setup Script for torch-starter (Fixed)
 # ==============================================================================
 
 # Colors
@@ -22,31 +22,37 @@ echo "🔧 Setting up torch-starter environment..."
 # Ensure we're in the right directory
 cd /workspaces/torch-starter
 
-# Check if pyproject.toml exists, if not clone the repository
+# Check if we're in a valid torch-starter directory
 if [ ! -f "pyproject.toml" ]; then
-    log_info "Cloning repository..."
-    git clone https://github.com/Timothy-Coulter/ubuntu_p3_12_torch_devcontainer.git /tmp/repo
-    cp -r /tmp/repo/* /tmp/repo/.[!.]* /workspaces/torch-starter/ 2>/dev/null || true
-    rm -rf /tmp/repo
-    log_success "Repository cloned"
+    log_error "pyproject.toml not found - are we in the right directory?"
+    exit 1
 fi
 
-# Fix ownership
-sudo chown -R ubuntu:ubuntu /workspaces/torch-starter
+# Fix ownership (important for mounted volumes)
+if [ -w "/workspaces/torch-starter" ]; then
+    log_info "Fixing file ownership..."
+    sudo chown -R ubuntu:ubuntu /workspaces/torch-starter 2>/dev/null || log_warning "Could not fix ownership"
+fi
 
-# Sync dependencies if UV environment exists
-if [ -d ".venv" ]; then
-    log_info "Syncing UV environment..."
-    uv sync --frozen || {
-        log_warning "UV sync failed, trying without frozen lock..."
-        uv sync || log_error "UV sync failed completely"
-    }
-    log_success "Dependencies synced"
-else
+# Check if virtual environment exists
+if [ ! -d ".venv" ]; then
     log_warning "Virtual environment not found, creating..."
     uv venv --python 3.12
-    uv sync
-    log_success "Virtual environment created and dependencies installed"
+    log_success "Virtual environment created"
+fi
+
+# Sync dependencies
+log_info "Syncing dependencies with UV..."
+if uv sync; then
+    log_success "Dependencies synced successfully"
+else
+    log_warning "UV sync failed, trying without lockfile..."
+    if uv sync --no-lock; then
+        log_success "Dependencies synced (no lockfile)"
+    else
+        log_error "UV sync failed completely, falling back to pip"
+        .venv/bin/pip install torch torchvision torchaudio numpy pandas transformers jupyter
+    fi
 fi
 
 # Make scripts executable
@@ -55,14 +61,59 @@ if [ -f "dev.sh" ]; then
     log_success "dev.sh made executable"
 fi
 
+# Create necessary directories
+mkdir -p {data,logs,models,checkpoints,outputs,notebooks,examples}
+log_success "Project directories created"
+
 # Run basic verification
-if [ -f "dev.sh" ] && [ -d ".venv" ]; then
-    log_info "Running basic verification..."
-    ./dev.sh verify-setup || log_warning "Verification had some issues, but continuing..."
+log_info "Running basic verification..."
+if .venv/bin/python -c "import sys; print(f'✅ Python {sys.version}')"; then
+    log_success "Python verification passed"
 else
-    log_info "Running basic Python test..."
-    .venv/bin/python -c "import sys; print(f'Python {sys.version}')" || log_error "Python test failed"
-    .venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__}')" || log_warning "PyTorch import failed"
+    log_error "Python verification failed"
+    exit 1
+fi
+
+if .venv/bin/python -c "import torch; print(f'✅ PyTorch {torch.__version__}')"; then
+    log_success "PyTorch verification passed"
+    
+    # Check CUDA if available
+    if .venv/bin/python -c "import torch; print('✅ CUDA available' if torch.cuda.is_available() else '⚠️ CUDA not available')"; then
+        log_info "CUDA status checked"
+    fi
+else
+    log_warning "PyTorch verification failed - might need manual installation"
+fi
+
+# Copy verification scripts to workspace if they don't exist
+if [ ! -d "verify_setup" ]; then
+    log_info "Creating basic verification scripts..."
+    mkdir -p verify_setup
+    
+    cat > verify_setup/verify_python.py << 'EOF'
+#!/usr/bin/env python3
+import sys
+print(f"Python {sys.version}")
+print(f"Executable: {sys.executable}")
+print("✅ Python verification passed")
+EOF
+
+    cat > verify_setup/verify_torch.py << 'EOF'
+#!/usr/bin/env python3
+try:
+    import torch
+    print(f"PyTorch {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA devices: {torch.cuda.device_count()}")
+    print("✅ PyTorch verification passed")
+except ImportError as e:
+    print(f"❌ PyTorch not available: {e}")
+    sys.exit(1)
+EOF
+
+    chmod +x verify_setup/*.py
+    log_success "Verification scripts created"
 fi
 
 log_success "Environment setup completed!"

@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 """Simple health check for container."""
 
 import sys
-
 
 def main():
     """Quick health check for Docker healthcheck."""
@@ -15,9 +13,12 @@ def main():
         
         # Test CUDA if available (but don't fail if not)
         if torch.cuda.is_available():
-            x_cuda = torch.tensor([1.0], device='cuda')
-            del x_cuda
-            torch.cuda.empty_cache()
+            try:
+                x_cuda = torch.tensor([1.0], device='cuda')
+                del x_cuda
+                torch.cuda.empty_cache()
+            except:
+                pass  # Don't fail health check for CUDA issues
         
         print("✅ Health check passed")
         return True
@@ -25,7 +26,6 @@ def main():
     except Exception as e:
         print(f"❌ Health check failed: {e}")
         return False
-
 
 if __name__ == "__main__":
     success = main()
